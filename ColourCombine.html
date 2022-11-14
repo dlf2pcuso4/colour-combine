@@ -11,6 +11,14 @@
       body {
         background-color: #151515;
       }
+      .selector {
+        width: 65px;
+        height: 65px;
+        margin: 5px;
+      }
+      #black {
+        background-color: #000000;
+      }
     </style>
   </head>
   <body>
@@ -24,44 +32,14 @@
     >
       <div style="max-width: min-content">
         <div style="display: flex; justify-content: center">
-          <div
-            style="
-              width: 65px;
-              height: 65px;
-              margin: 2.5px;
-              background-color: #ff0000;
-            "
-            onclick="colour('#ff0000')"
-          ></div>
-          <div
-            style="
-              width: 65px;
-              height: 65px;
-              margin: 2.5px;
-              background-color: #00ff00;
-            "
-            onclick="colour('#00ff00')"
-          ></div>
-          <div
-            style="
-              width: 65px;
-              height: 65px;
-              margin: 2.5px;
-              background-color: #0000ff;
-            "
-            onclick="colour('#0000ff')"
-          ></div>
-          <div
-            style="
-              width: 65px;
-              height: 65px;
-              margin: 2.5px;
-              background-color: #ffffff;
-            "
-            onclick="colour('#ffffff')"
-          ></div>
+          <div>
+            <div id="red" class="selector" onclick="colour('#ff0000')"></div>
+            <div id="green" class="selector" onclick="colour('#00ff00')"></div>
+            <div id="blue" class="selector" onclick="colour('#0000ff')"></div>
+            <div id="black" class="selector" onclick="colour('#000000')"></div>
+          </div>
+          <canvas></canvas>
         </div>
-        <canvas></canvas>
       </div>
     </div>
   </body>
@@ -74,14 +52,23 @@
         grids[i][j] = "#000000";
       }
     }
+    var cooldowns = ["#110000", "#001100", "#000011"];
+    var spawnCount = 0;
+    var spawnFreq = 3000;
     const cnv = document.getElementsByTagName("canvas")[0];
     const ctx = cnv.getContext("2d");
     cnv.width = 705;
     cnv.height = 705;
     const clearCanvas = () => ctx.clearRect(0, 0, cnv.width, cnv.height);
+
     setInterval(refresh, 100);
-    setInterval(advanceWhite, 500);
+    setInterval(refreshCooldown, 200);
+    setInterval(advanceWhite, 1200);
     setInterval(advanceRed, 300);
+    setInterval(advanceBlue, 30);
+    setInterval(advanceMagenta, 1500);
+    setInterval(advancePink, 500);
+    setTimeout(spawnWhite, 5000);
 
     function refresh() {
       for (let i = 0; i < grids.length; i++) {
@@ -91,29 +78,148 @@
         }
       }
     }
-    cnv.onclick = function click(event) {
-      const rect = cnv.getBoundingClientRect();
-      const x = Math.ceil((event.clientX - rect.left) / 70) - 1;
-      const y = Math.ceil((event.clientY - rect.top) / 70) - 1;
-      if (grids[x][y] == "#000000") {
-        grids[x][y] = ctxcolour;
-      } else {
-        grids[x][y] = "#000000";
+    function refreshCooldown() {
+      let cd = 5;
+      for (let i = 0; i < grids.length; i++) {
+        for (let j = 0; j < grids[i].length; j++) {
+          if (grids[i][j] == "#00ff00" || grids[i][j] == "#00ffff") {
+            cd += 1;
+          }
+        }
       }
-    };
+      if (cooldowns[0] != "#ff0000") {
+        cooldowns[0] =
+          "#" +
+          (parseInt(cooldowns[0].slice(1, -4), 16) + cd).toString(16) +
+          "0000";
+        if (parseInt(cooldowns[0].slice(1, -4), 16) > 170) {
+          cooldowns[0] = "#ff0000";
+        }
+      }
+      document.getElementById("red").style.backgroundColor = cooldowns[0];
+      if (cooldowns[1] != "#00ff00") {
+        cooldowns[1] =
+          "#00" +
+          (parseInt(cooldowns[1].slice(1, -2), 16) + cd).toString(16) +
+          "00";
+        if (parseInt(cooldowns[1].slice(1, -2), 16) > 170) {
+          cooldowns[1] = "#00ff00";
+        }
+      }
+      document.getElementById("green").style.backgroundColor = cooldowns[1];
+      if (cooldowns[2] != "#0000ff") {
+        cooldowns[2] =
+          "#0000" + (parseInt(cooldowns[2].slice(1), 16) + cd).toString(16);
+        if (parseInt(cooldowns[2].slice(1), 16) > 170) {
+          cooldowns[2] = "#0000ff";
+        }
+      }
+      document.getElementById("blue").style.backgroundColor = cooldowns[2];
+    }
+
     function colour(c) {
       ctxcolour = c;
     }
+    cnv.onclick = function click(event) {
+      if (cooldowns.includes(ctxcolour) || ctxcolour == "#000000") {
+        const rect = cnv.getBoundingClientRect();
+        const x = Math.ceil((event.clientX - rect.left) / 70) - 1;
+        const y = Math.ceil((event.clientY - rect.top) / 70) - 1;
+        if (grids[x][y] != "#ffffff") {
+          if (
+            Number(grids[x][y].slice(3)) % 1111 == 0 &&
+            Number(grids[x][y].slice(3)) != 0
+          ) {
+            grids[x][y] = ctxcolour;
+            if (y > 0) {
+              if (grids[x][y - 1] != "#ffffff") {
+                grids[x][y - 1] = ctxcolour;
+              }
+            }
+            if (y < 9) {
+              if (grids[x][y + 1] != "#ffffff") {
+                grids[x][y + 1] = ctxcolour;
+              }
+            }
+          } else if (
+            (grids[x][y] == "#00ff00" && ctxcolour == "#0000ff") ||
+            (grids[x][y] == "#0000ff" && ctxcolour == "#00ff00")
+          ) {
+            grids[x][y] = "#00ffff";
+          } else {
+            grids[x][y] = ctxcolour;
+          }
+          switch (ctxcolour) {
+            case "#ff0000":
+              cooldowns[0] = "#110000";
+              break;
+            case "#00ff00":
+              cooldowns[1] = "#001100";
+              break;
+            case "#0000ff":
+              cooldowns[2] = "#000011";
+              break;
+          }
+        }
+      }
+    };
+    function spawnWhite() {
+      grids[9][Math.floor(Math.random() * 10)] = "#ffffff";
+      spawnCount++;
+      switch (spawnCount) {
+        case 20:
+          spawnFreq = 2500;
+          break;
+        case 35:
+          spawnFreq = 2000;
+          break;
+        case 60:
+          spawnFreq = 1500;
+          break;
+        case 90:
+          spawnFreq = 1000;
+          break;
+        case 140:
+          spawnFreq = 700;
+          break;
+      }
+      setTimeout(spawnWhite, spawnFreq);
+    }
+
     function advanceWhite() {
       for (let i = 0; i < grids.length; i++) {
         for (let j = 0; j < grids[i].length; j++) {
           if (grids[i][j] == "#ffffff") {
             grids[i][j] = "#000000";
             if (i > 0) {
-              if (grids[i - 1][j] == "#ff0000") {
-                grids[i - 1][j] = "#ff8888";
+              if (
+                grids[i - 1][j].includes("#0000") &&
+                grids[i - 1][j] != "#000000"
+              ) {
+                grids[i][j] = "#ffffff";
               } else {
-                grids[i - 1][j] = "#ffffff";
+                switch (grids[i - 1][j]) {
+                  case "#ffffff":
+                    grids[i][j] = "#ffffff";
+                    break;
+                  case "#ff0000":
+                    grids[i][j] = "#ffffff";
+                    break;
+                  case "#ff00ff":
+                    grids[i - 1][j] = "#ff0000";
+                    break;
+                  case "#00ffff":
+                    grids[i - 1][j] = "#00aaaa";
+                    break;
+                  case "#00aaaa":
+                    grids[i - 1][j] = "#005556";
+                    break;
+                  case "#005556":
+                    grids[i - 1][j] = "#000000";
+                    break;
+                  default:
+                    grids[i - 1][j] = "#ffffff";
+                }
               }
             }
           }
@@ -130,18 +236,77 @@
                 case "#0000ff":
                   grids[i + 1][j] = "#ff00ff";
                   if (j > 0) {
-                    grids[i + 1][j - 1] = "#ff00ff";
+                    if (grids[i + 1][j - 1] == "#ffffff") {
+                      grids[i + 1][j - 1] = "#ff0000";
+                    } else {
+                      grids[i + 1][j - 1] = "#ff00ff";
+                    }
                   }
                   if (j < 9) {
-                    grids[i + 1][j + 1] = "#ff00ff";
+                    if (grids[i + 1][j + 1] == "#ffffff") {
+                      grids[i + 1][j + 1] = "#ff0000";
+                    } else {
+                      grids[i + 1][j + 1] = "#ff00ff";
+                    }
                   }
                   break;
                 case "#ffffff":
-                  grids[i][j] = "#ff0000";
+                  grids[i + 1][j] = "#ff8888";
                   break;
                 default:
                   grids[i + 1][j] = "#ff0000";
               }
+            }
+          }
+        }
+      }
+    }
+    function advanceBlue() {
+      for (let i = 0; i < grids.length; i++) {
+        for (let j = 0; j < grids[i].length; j++) {
+          if (grids[i][j].includes("#0000") && grids[i][j] != "#000000") {
+            if (grids[i + 1][j] == "#ffffff") {
+              grids[i][j] =
+                "#0000" + (parseInt(grids[i][j].slice(1), 16) - 1).toString(16);
+              if (grids[i][j] == "#000020") {
+                grids[i][j] = "#000000";
+              }
+            }
+          }
+        }
+      }
+    }
+    function advanceMagenta() {
+      for (let i = grids.length - 1; i >= 0; i--) {
+        for (let j = 0; j < grids[i].length; j++) {
+          if (grids[i][j] == "#ff00ff") {
+            grids[i][j] = "#000000";
+            if (i < 9) {
+              switch (grids[i + 1][j]) {
+                case "#ffffff":
+                  grids[i + 1][j] = "#ff0000";
+                  break;
+                default:
+                  grids[i + 1][j] = "#ff00ff";
+              }
+            }
+          }
+        }
+      }
+    }
+    function advancePink() {
+      for (let i = 0; i < grids.length; i++) {
+        for (let j = 0; j < grids[i].length; j++) {
+          if (
+            Number(grids[i][j].slice(3)) % 1111 == 0 &&
+            Number(grids[i][j].slice(3)) != 0
+          ) {
+            grids[i][j] =
+              "#" +
+              (31 * Number(grids[i][j].slice(6))).toString(16) +
+              (Number(grids[i][j].slice(3)) - 1111);
+            if (grids[i][j] == "#1f0") {
+              grids[i][j] = "#000000";
             }
           }
         }

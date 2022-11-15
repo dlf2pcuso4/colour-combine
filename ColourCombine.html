@@ -11,10 +11,12 @@
       body {
         background-color: #151515;
       }
+      .border {
+        padding: 5px;
+      }
       .selector {
         width: 65px;
         height: 65px;
-        margin: 5px;
       }
       #black {
         background-color: #000000;
@@ -33,10 +35,26 @@
       <div style="max-width: min-content">
         <div style="display: flex; justify-content: center">
           <div>
-            <div id="red" class="selector" onclick="colour('#ff0000')"></div>
-            <div id="green" class="selector" onclick="colour('#00ff00')"></div>
-            <div id="blue" class="selector" onclick="colour('#0000ff')"></div>
-            <div id="black" class="selector" onclick="colour('#000000')"></div>
+            <div id="border#ff0000" class="border">
+              <div id="red" class="selector" onclick="colour('#ff0000')"></div>
+            </div>
+            <div id="border#00ff00" class="border">
+              <div
+                id="green"
+                class="selector"
+                onclick="colour('#00ff00')"
+              ></div>
+            </div>
+            <div id="border#0000ff" class="border">
+              <div id="blue" class="selector" onclick="colour('#0000ff')"></div>
+            </div>
+            <div id="border#000000" class="border">
+              <div
+                id="black"
+                class="selector"
+                onclick="colour('#000000')"
+              ></div>
+            </div>
           </div>
           <canvas></canvas>
         </div>
@@ -44,6 +62,7 @@
     </div>
   </body>
   <script>
+    var hp = 5;
     var grids = [];
     var ctxcolour = "#00ff00";
     for (let i = 0; i < 10; i++) {
@@ -60,15 +79,23 @@
     cnv.width = 705;
     cnv.height = 705;
     const clearCanvas = () => ctx.clearRect(0, 0, cnv.width, cnv.height);
+    refresh();
+    refreshCooldown();
 
-    setInterval(refresh, 100);
-    setInterval(refreshCooldown, 200);
-    setInterval(advanceWhite, 1200);
-    setInterval(advanceRed, 300);
-    setInterval(advanceBlue, 30);
-    setInterval(advanceMagenta, 1500);
-    setInterval(advancePink, 500);
-    setTimeout(spawnWhite, 5000);
+    document.onkeydown = (event) => {
+      if (event.key == " ") {
+        document.onkeydown = null;
+        setInterval(refresh, 100);
+        setInterval(refreshCooldown, 200);
+        setInterval(advanceWhite, 1200);
+        setInterval(advanceRed, 300);
+        setInterval(advanceBlue, 30);
+        setInterval(advanceMagenta, 1500);
+        setInterval(advanceYellow, 1500);
+        setInterval(advancePink, 500);
+        setTimeout(spawnWhite, 5000);
+      }
+    };
 
     function refresh() {
       for (let i = 0; i < grids.length; i++) {
@@ -82,7 +109,11 @@
       let cd = 5;
       for (let i = 0; i < grids.length; i++) {
         for (let j = 0; j < grids[i].length; j++) {
-          if (grids[i][j] == "#00ff00" || grids[i][j] == "#00ffff") {
+          if (
+            grids[i][j] == "#00ff00" ||
+            grids[i][j] == "#00ffff" ||
+            grids[i][j] == "#ffff00"
+          ) {
             cd += 1;
           }
         }
@@ -118,6 +149,11 @@
     }
 
     function colour(c) {
+      const allBorders = document.querySelectorAll('[id^="border"]');
+      for (let i = 0; i < allBorders.length; i++) {
+        allBorders[i].style.backgroundColor = null;
+      }
+      document.getElementById("border" + c).style.backgroundColor = "#999999";
       ctxcolour = c;
     }
     cnv.onclick = function click(event) {
@@ -146,6 +182,44 @@
             (grids[x][y] == "#0000ff" && ctxcolour == "#00ff00")
           ) {
             grids[x][y] = "#00ffff";
+          } else if (
+            (grids[x][y] == "#0000ff" && ctxcolour == "#ff0000") ||
+            (grids[x][y] == "#ff0000" && ctxcolour == "#0000ff")
+          ) {
+            grids[x][y] = "#ff00ff";
+            if (y > 0) {
+              if (grids[x][y - 1] == "#ffffff") {
+                grids[x][y - 1] = "#ff0000";
+              } else {
+                grids[x][y - 1] = "#ff00ff";
+              }
+            }
+            if (y < 9) {
+              if (grids[x][y + 1] == "#ffffff") {
+                grids[x][y + 1] = "#ff0000";
+              } else {
+                grids[x][y + 1] = "#ff00ff";
+              }
+            }
+          } else if (
+            (grids[x][y] == "#00ff00" && ctxcolour == "#ff0000") ||
+            (grids[x][y] == "#ff0000" && ctxcolour == "#00ff00")
+          ) {
+            grids[x][y] = "#ffff00";
+            if (y > 0) {
+              if (grids[x][y - 1] == "#ffffff") {
+                grids[x][y - 1] = "#00ff00";
+              } else {
+                grids[x][y - 1] = "#ffff00";
+              }
+            }
+            if (y < 9) {
+              if (grids[x][y + 1] == "#ffffff") {
+                grids[x][y + 1] = "#00ff00";
+              } else {
+                grids[x][y + 1] = "#ffff00";
+              }
+            }
           } else {
             grids[x][y] = ctxcolour;
           }
@@ -208,6 +282,9 @@
                   case "#ff00ff":
                     grids[i - 1][j] = "#ff0000";
                     break;
+                  case "#ffff00":
+                    grids[i - 1][j] = "#00ff00";
+                    break;
                   case "#00ffff":
                     grids[i - 1][j] = "#00aaaa";
                     break;
@@ -220,6 +297,11 @@
                   default:
                     grids[i - 1][j] = "#ffffff";
                 }
+              }
+            } else {
+              hp--;
+              if (hp <= 0) {
+                alert("you lose lol");
               }
             }
           }
@@ -247,6 +329,23 @@
                       grids[i + 1][j + 1] = "#ff0000";
                     } else {
                       grids[i + 1][j + 1] = "#ff00ff";
+                    }
+                  }
+                  break;
+                case "#00ff00":
+                  grids[i + 1][j] = "#ffff00";
+                  if (j > 0) {
+                    if (grids[i + 1][j - 1] == "#ffffff") {
+                      grids[i + 1][j - 1] = "#00ff00";
+                    } else {
+                      grids[i + 1][j - 1] = "#ffff00";
+                    }
+                  }
+                  if (j < 9) {
+                    if (grids[i + 1][j + 1] == "#ffffff") {
+                      grids[i + 1][j + 1] = "#00ff00";
+                    } else {
+                      grids[i + 1][j + 1] = "#ffff00";
                     }
                   }
                   break;
@@ -288,6 +387,24 @@
                   break;
                 default:
                   grids[i + 1][j] = "#ff00ff";
+              }
+            }
+          }
+        }
+      }
+    }
+    function advanceYellow() {
+      for (let i = grids.length - 1; i >= 0; i--) {
+        for (let j = 0; j < grids[i].length; j++) {
+          if (grids[i][j] == "#ffff00") {
+            grids[i][j] = "#000000";
+            if (i < 9) {
+              switch (grids[i + 1][j]) {
+                case "#ffffff":
+                  grids[i + 1][j] = "#00ff00";
+                  break;
+                default:
+                  grids[i + 1][j] = "#ffff00";
               }
             }
           }

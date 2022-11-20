@@ -1,0 +1,426 @@
+#include <SDL.h>
+
+#include <cstdlib>
+#include <ctime>
+// #include <iostream>
+
+const int SCREEN_WIDTH = 720;
+const int SCREEN_HEIGHT = 655;
+
+class Block {
+ private:
+  int spawnCount = 0;
+  int moveCount = 0;
+  bool gridfound[10][10] = {};
+
+ public:
+  int rgbs[4] = {0, 0, 0, 1};    // rgb status value (when created)
+  int spawnAfter = 0;            // 1/spawn rate
+  int moveAfter = 0;             // 1/move speed
+  int noCollide[3] = {0, 0, 0};  // block that cannot merge with
+
+  // count number of blocks in grids
+  int count(int grids[10][10][4], int s) {
+    int count = 0;
+    for (int x = 0; x < 10; x++) {
+      for (int y = 0; y < 10; y++) {
+        if (grids[x][y][0] == rgbs[0] && grids[x][y][1] == rgbs[1] &&
+            grids[x][y][2] == rgbs[2] && grids[x][y][3] == s) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  // overwrites blocks in arguement
+  void replace(int grids[10][10][4], double alpha[10][10], int r, int g, int b,
+               int s) {
+    for (int x = 0; x < 10; x++) {
+      for (int y = 0; y < 10; y++) {
+        if (grids[x][y][0] == r && grids[x][y][1] == g && grids[x][y][2] == b &&
+            grids[x][y][3] == s) {
+          for (int z = 0; z < 4; z++) {
+            grids[x][y][z] = rgbs[z];
+          }
+          alpha[x][y] = 1;
+        }
+      }
+    }
+  }
+
+  // spawn blocks at a set interval
+  void attemptSpawn(int grid[4], double& alpha) {
+    spawnCount++;
+    if (spawnCount == spawnAfter) {
+      spawnCount = 0;
+      for (int z = 0; z < 4; z++) {
+        grid[z] = rgbs[z];
+      }
+      alpha = 1;
+    }
+  }
+
+  // move blocks at a set interval
+  void move(int grids[10][10][4], double alpha[10][10], int s, int direction) {
+    moveCount++;
+    if (moveCount == moveAfter) {
+      moveCount = 0;
+      // searches for grids that match rgb
+      for (int x = 0; x < 10; x++) {
+        for (int y = 0; y < 10; y++) {
+          if (grids[x][y][0] == rgbs[0] && grids[x][y][1] == rgbs[1] &&
+              grids[x][y][2] == rgbs[2] && grids[x][y][3] == s)
+            gridfound[x][y] = true;
+        }
+      }
+      // moves matching grids
+      for (int x = 0; x < 10; x++) {
+        for (int y = 0; y < 10; y++) {
+          if (gridfound[x][y]) {
+            gridfound[x][y] = false;
+            if (x + direction >= 0 && x + direction <= 9) {
+              if (!(grids[x + direction][y][0] == noCollide[0] &&
+                    grids[x + direction][y][1] == noCollide[1] &&
+                    grids[x + direction][y][2] == noCollide[2] &&
+                    noCollide[0] != noCollide[1] != noCollide[2] != 0)) {
+                for (int z = 0; z < 3; z++) {
+                  grids[x][y][z] = 0;
+                  grids[x + direction][y][z] += rgbs[z];
+                  if (grids[x + direction][y][z] > 255)
+                    grids[x + direction][y][z] = 255;
+                }
+                grids[x][y][3] = 0;
+                alpha[x][y] = 1;
+                grids[x + direction][y][3] += s;
+                alpha[x + direction][y] = 1;
+              }
+            } else {
+              for (int z = 0; z < 4; z++) {
+                grids[x][y][z] = 0;
+              }
+              alpha[x][y] = 1;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // fades block when specific block is next to it
+  void fade(int grids[10][10][4], double alpha[10][10], int s1, int r, int g,
+            int b, int s2, int direction, double fadeRate) {
+    for (int x = 0; x < 10; x++) {
+      for (int y = 0; y < 10; y++) {
+        if (grids[x][y][0] == rgbs[0] && grids[x][y][1] == rgbs[1] &&
+            grids[x][y][2] == rgbs[2] && grids[x][y][3] == s1) {
+          if (x + direction >= 0 && x + direction <= 9) {
+            if (grids[x + direction][y][0] == r &&
+                grids[x + direction][y][1] == g &&
+                grids[x + direction][y][2] == b &&
+                grids[x + direction][y][3] == s2) {
+              if (alpha[x][y] > 0) {
+                alpha[x][y] -= fadeRate;
+                if (alpha[x][y] < 0) {
+                  for (int z = 0; z < 4; z++) {
+                    grids[x][y][z] = 0;
+                  }
+                  alpha[x][y] = 1;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // splits and replaces blocks in arguement
+  void split(int grids[10][10][4], double alpha[10][10], int r, int g, int b,
+             int s) {
+    // searches for grids that match rgb
+    for (int x = 0; x < 10; x++) {
+      for (int y = 0; y < 10; y++) {
+        if (grids[x][y][0] == r && grids[x][y][1] == g && grids[x][y][2] == b &&
+            grids[x][y][3] == s)
+          gridfound[x][y] = true;
+      }
+    }
+    // splits matching grids
+    for (int x = 0; x < 10; x++) {
+      for (int y = 0; y < 10; y++) {
+        if (gridfound[x][y]) {
+          gridfound[x][y] = false;
+          for (int z = 0; z < 4; z++) {
+            grids[x][y][z] = rgbs[z];
+            if (y > 0) {
+              grids[x][y - 1][z] += rgbs[z];
+              if (grids[x][y - 1][z] > 255) grids[x][y - 1][z] = 255;
+              alpha[x][y - 1] = 1;
+            }
+            if (y < 9) {
+              grids[x][y + 1][z] += rgbs[z];
+              if (grids[x][y + 1][z] > 255) grids[x][y + 1][z] = 255;
+              alpha[x][y + 1] = 1;
+            }
+          }
+          alpha[x][y] = 1;
+        }
+      }
+    }
+  }
+};
+
+int main(int argc, char* args[]) {
+  // setup sdl
+  SDL_Window* window = NULL;
+  SDL_Renderer* renderer = NULL;
+  SDL_Event e;
+  window = SDL_CreateWindow("Colour Combine", SDL_WINDOWPOS_UNDEFINED,
+                            SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH,
+                            SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+  renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  SDL_SetWindowIcon(window, SDL_LoadBMP("icon.bmp"));
+
+  // initialise grids
+  SDL_Rect grid;
+  grid.w = 60;
+  grid.h = 60;
+  int grids[10][10][4];  // xval, yval, rgb
+  for (int x = 0; x < 10; x++) {
+    for (int y = 0; y < 10; y++) {
+      for (int z = 0; z < 4; z++) {
+        grids[x][y][z] = 0;
+      }
+    }
+  }
+  double alpha[10][10];  // alpha channel
+  for (int x = 0; x < 10; x++) {
+    for (int y = 0; y < 10; y++) {
+      alpha[x][y] = 1;
+    }
+  }
+
+  // initialise colour selection panel
+  int currentColour = 0;
+  int availableColours[3][4] = {{255, 0, 0, 1}, {0, 255, 0, 1}, {0, 0, 255, 1}};
+  int panelColours[3][3] = {{0, 0, 0}, {0, 0, 0}, {0, 0, 0}};
+  int cooldowns[3] = {238, 238, 238};
+
+  // initialise selection border
+  SDL_Rect border;
+  border.x = 0;
+  border.y = 0;
+  border.w = 70;
+  border.h = 70;
+
+  // initialise block objects
+  Block black;
+  black.rgbs[3] = 0;
+
+  Block red;
+  red.rgbs[0] = 255;
+  red.moveAfter = 3;
+
+  Block green;
+  green.rgbs[1] = 255;
+
+  Block blue;
+  blue.rgbs[2] = 255;
+
+  Block yellow;
+  yellow.rgbs[0] = 255;
+  yellow.rgbs[1] = 255;
+  yellow.rgbs[3] = 3;
+  yellow.moveAfter = 15;
+
+  Block magenta;
+  magenta.rgbs[0] = 255;
+  magenta.rgbs[2] = 255;
+  magenta.rgbs[3] = 3;
+  magenta.moveAfter = 15;
+
+  Block cyan;
+  cyan.rgbs[1] = 255;
+  cyan.rgbs[2] = 255;
+
+  Block cyan1;
+  cyan1.rgbs[1] = 170;
+  cyan1.rgbs[2] = 170;
+  cyan1.rgbs[3] = 2;
+
+  Block cyan2;
+  cyan2.rgbs[1] = 85;
+  cyan2.rgbs[2] = 85;
+  cyan2.rgbs[3] = 3;
+
+  Block pink;
+  pink.rgbs[0] = 255;
+  pink.rgbs[1] = 101;
+  pink.rgbs[2] = 101;
+
+  Block white;
+  white.rgbs[0] = 255;
+  white.rgbs[1] = 255;
+  white.rgbs[2] = 255;
+  white.rgbs[3] = 7;
+
+  Block grey;
+  grey.rgbs[0] = 153;
+  grey.rgbs[1] = 153;
+  grey.rgbs[2] = 153;
+  grey.rgbs[3] = 10;
+  grey.spawnAfter = 25;
+  grey.moveAfter = 12;
+  grey.noCollide[2] = 255;
+
+  // game loop
+  bool gameRunning = true;
+  while (gameRunning) {
+    SDL_Delay(100);
+
+    // detect event
+    while (SDL_PollEvent(&e)) {
+      switch (e.type) {
+        case SDL_QUIT:
+          gameRunning = false;
+          break;
+        case SDL_MOUSEBUTTONDOWN:
+          int x, y;
+          SDL_GetMouseState(&x, &y);
+          x = floor(x / 65);
+          y = floor(y / 65);
+          switch (e.button.button) {
+            case SDL_BUTTON_LEFT:
+              if (x > 0) {
+                // if grids clicked
+                if (cooldowns[currentColour] == 0) {
+                  for (int z = 0; z < 4; z++) {
+                    grids[x - 1][y][z] += availableColours[currentColour][z];
+                    if (grids[x - 1][y][z] > 255) grids[x - 1][y][z] = 255;
+                  }
+                  alpha[x - 1][y] = 1;
+                  cooldowns[currentColour] = 238;
+                }
+              } else if (y < 3) {
+                // if selection panel clicked
+                currentColour = y;
+                border.y = 65 * y;
+              }
+              break;
+            case SDL_BUTTON_RIGHT:
+              if (x > 0) {
+                if (grids[x - 1][y][0] != 153 || grids[x - 1][y][1] != 153 ||
+                    grids[x - 1][y][2] != 153) {
+                  for (int z = 0; z < 4; z++) {
+                    grids[x - 1][y][z] = 0;  // blackens grid
+                  }
+                  alpha[x - 1][y] = 1;
+                }
+              }
+              break;
+          }
+          break;
+      }
+    }
+
+    // move coloured blocks
+    red.move(grids, alpha, 1, 1);
+    yellow.move(grids, alpha, 3, 1);
+    magenta.move(grids, alpha, 3, 1);
+    grey.move(grids, alpha, 10, -1);
+
+    // replace coloured blocks
+    yellow.replace(grids, alpha, 255, 255, 0, 4);   // yellow on basic colours
+    magenta.replace(grids, alpha, 255, 0, 255, 4);  // magenta on basic colours
+    cyan1.replace(grids, alpha, 0, 255, 170, 3);    // cyan1 on basic colours
+    cyan1.replace(grids, alpha, 0, 170, 255, 3);
+    cyan2.replace(grids, alpha, 0, 255, 85, 4);  // cyan2 on basic colours
+    cyan2.replace(grids, alpha, 0, 85, 255, 4);
+    pink.replace(grids, alpha, 255, 153, 153, 11);   // red on grey
+    grey.replace(grids, alpha, 153, 255, 153, 11);   // green on grey
+    grey.replace(grids, alpha, 153, 153, 255, 11);   // blue on grey
+    red.replace(grids, alpha, 255, 153, 255, 13);    // magenta on grey
+    green.replace(grids, alpha, 255, 255, 153, 13);  // yellow on grey
+    grey.replace(grids, alpha, 255, 254, 254, 11);   // pink on grey
+    grey.replace(grids, alpha, 255, 255, 255, 20);   // grey on grey
+    white.replace(grids, alpha, 255, 255, 255, 17);  // grey on white
+    white.replace(grids, alpha, 255, 255, 255, 8);   // basic colours on white
+    white.replace(grids, alpha, 255, 255, 255, 10);  // magenta/yellow on white
+    cyan.replace(grids, alpha, 0, 255, 255, 2);      // cyan deterioration 0
+    cyan1.replace(grids, alpha, 153, 255, 255, 11);  // cyan deterioration 1
+    cyan2.replace(grids, alpha, 153, 255, 255, 12);  // cyan deterioration 2
+    black.replace(grids, alpha, 153, 238, 238, 13);  // cyan deterioration 3
+
+    // split coloured blocks
+    red.split(grids, alpha, 255, 101, 101, 2);
+    green.split(grids, alpha, 255, 255, 101, 2);
+    blue.split(grids, alpha, 255, 101, 255, 2);
+    yellow.split(grids, alpha, 255, 255, 0, 2);
+    magenta.split(grids, alpha, 255, 0, 255, 2);
+    white.split(grids, alpha, 255, 255, 255, 2);
+    white.split(grids, alpha, 255, 255, 255, 4);
+    white.split(grids, alpha, 255, 255, 255, 6);
+    white.split(grids, alpha, 255, 170, 170, 3);  // cyan 1 created white
+    white.split(grids, alpha, 255, 255, 170, 5);
+    white.split(grids, alpha, 255, 170, 255, 5);
+    white.split(grids, alpha, 255, 85, 85, 4);  // cyan 2 created white
+    white.split(grids, alpha, 255, 255, 85, 6);
+    white.split(grids, alpha, 255, 85, 255, 6);
+
+    // fade coloured blocks
+    blue.fade(grids, alpha, 1, 153, 153, 153, 10, 1, 0.014);
+    pink.fade(grids, alpha, 1, 0, 0, 0, 0, 1, 0.025);
+    white.fade(grids, alpha, 7, 0, 0, 0, 0, 1, 0.01);
+
+    // attempt spawn
+    srand((unsigned)time(0));
+    int rnd = rand() % 9;
+    grey.attemptSpawn(grids[9][rnd], alpha[9][rnd]);
+
+    // advance cooldowns
+    for (int i = 0; i < 3; i++) {
+      if (cooldowns[i] > 0)
+        cooldowns[i] -= 5 + green.count(grids, 1) + cyan.count(grids, 1) +
+                        white.count(grids, 7);
+      if (cooldowns[i] < 85) cooldowns[i] = 0;
+      for (int j = 0; j < 3; j++) {
+        panelColours[i][j] = availableColours[i][j] - cooldowns[i];
+        if (panelColours[i][j] < 0) panelColours[i][j] = 0;
+      }
+    }
+
+    // draw bg
+    SDL_SetRenderDrawColor(renderer, 21, 21, 21, 1);
+    SDL_RenderClear(renderer);
+
+    // draw border
+    SDL_SetRenderDrawColor(renderer, 200, 200, 200, 1);
+    SDL_RenderFillRect(renderer, &border);
+
+    // draw colour panels
+    grid.x = 5;
+    for (int i = 0; i < 3; i++) {
+      grid.y = 65 * i + 5;
+      SDL_SetRenderDrawColor(renderer, panelColours[i][0], panelColours[i][1],
+                             panelColours[i][2], 1);
+      SDL_RenderFillRect(renderer, &grid);
+    }
+
+    // draw grids
+    for (int x = 0; x < 10; x++) {
+      for (int y = 0; y < 10; y++) {
+        grid.x = 65 * x + 70;
+        grid.y = 65 * y + 5;
+        SDL_SetRenderDrawColor(renderer, grids[x][y][0] * alpha[x][y],
+                               grids[x][y][1] * alpha[x][y],
+                               grids[x][y][2] * alpha[x][y], 1);
+        SDL_RenderFillRect(renderer, &grid);
+      }
+    }
+    SDL_RenderPresent(renderer);
+  }
+  SDL_DestroyWindow(window);
+  SDL_Quit();
+  return 0;
+}
